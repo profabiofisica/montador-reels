@@ -7,7 +7,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: [".github/workflows/reels.yml", "montar.py"]
+    paths: [".github/workflows/reels.yml", "montar.py", "musica.py"]
 concurrency:
   group: reels
   cancel-in-progress: false
@@ -25,6 +25,9 @@ jobs:
           fi
           ffmpeg -version | head -1
         timeout-minutes: 12
+      - name: numpy (trilha composta)
+        run: python3 -c "import numpy" 2>/dev/null || sudo apt-get install -y -qq --no-install-recommends python3-numpy >/dev/null || python3 -m pip install --user -q numpy
+        timeout-minutes: 6
       - name: Montar
         env:
           RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
