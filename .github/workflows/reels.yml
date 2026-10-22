@@ -19,11 +19,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: ffmpeg
         run: |
+          # mesmo ffmpeg do teste (Ubuntu); o estático baixado de fora quebrava o drawtext
           if ! command -v ffmpeg >/dev/null; then
-            curl -sSL --retry 3 -o /tmp/ff.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-            mkdir -p /tmp/ff && tar -xJf /tmp/ff.tar.xz -C /tmp/ff --strip-components=1
-            echo "/tmp/ff" >> "$GITHUB_PATH"
+            sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
           fi
+          ffmpeg -version | head -1
         timeout-minutes: 5
       - name: Montar
         env:

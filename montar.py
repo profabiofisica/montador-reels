@@ -74,7 +74,10 @@ def ff(*args):
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *args]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
-        raise RuntimeError("ffmpeg: " + (r.stderr or "")[-600:])
+        # 22/10/2026: manda a linha do erro (o ffmpeg repete o filtro inteiro antes dela)
+        ls = [l for l in (r.stderr or "").splitlines() if l.strip()]
+        err = [l for l in ls if any(k in l.lower() for k in ("error", "invalid", "no such", "not found", "unable", "failed"))]
+        raise RuntimeError("ffmpeg: " + " | ".join((err or ls)[-3:])[-260:])
 
 
 def cor(h):
