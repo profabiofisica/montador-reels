@@ -1,0 +1,85 @@
+{
+ "fonte": "Pixabay (licença Pixabay, uso comercial livre, sem atribuição). Faixas com aviso de Content ID ficam de fora.",
+ "faixas": [
+  {
+   "arquivo": "animado-dream-corporate.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2026/01/31/audio_c78c97d554.mp3",
+   "clima": "animado"
+  },
+  {
+   "arquivo": "animado-motivational-corporate.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2022/05/06/audio_3a49f07a2e.mp3",
+   "clima": "animado"
+  },
+  {
+   "arquivo": "animado-moving-on.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2024/10/22/audio_4e1569edd8.mp3",
+   "clima": "animado"
+  },
+  {
+   "arquivo": "animado-escape-your-love.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2025/09/29/audio_77a36612dd.mp3",
+   "clima": "animado"
+  },
+  {
+   "arquivo": "inspirador-age-of-innovation.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2021/10/25/audio_f8c7d676a1.mp3",
+   "clima": "inspirador"
+  },
+  {
+   "arquivo": "inspirador-skywave-lights.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2025/04/14/audio_d1e0862552.mp3",
+   "clima": "inspirador"
+  },
+  {
+   "arquivo": "inspirador-beautiful-uplifting.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2026/10/10/audio_040cc78fa4.mp3",
+   "clima": "inspirador"
+  },
+  {
+   "arquivo": "inspirador-inspiring-travel-acoustic.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2026/10/16/audio_82e78afb72.mp3",
+   "clima": "inspirador"
+  },
+  {
+   "arquivo": "calmo-lofi-calm.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2026/09/03/audio_6409440535.mp3",
+   "clima": "calmo"
+  },
+  {
+   "arquivo": "calmo-soft-air.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2026/07/28/audio_38ff08ff83.mp3",
+   "clima": "calmo"
+  },
+  {
+   "arquivo": "calmo-ambient-lofi-cinematic.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2026/08/17/audio_cd72205514.mp3",
+   "clima": "calmo"
+  },
+  {
+   "arquivo": "intenso-rising-dominion.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2024/12/19/audio_220ab601fd.mp3",
+   "clima": "intenso"
+  },
+  {
+   "arquivo": "intenso-eternal-surge.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2024/12/19/audio_d8d841ca88.mp3",
+   "clima": "intenso"
+  },
+  {
+   "arquivo": "intenso-inspiring-epic.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2021/11/24/audio_838dbb98e5.mp3",
+   "clima": "intenso"
+  },
+  {
+   "arquivo": "intenso-uplifting-action-sport.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2026/10/11/audio_8ffd879474.mp3",
+   "clima": "intenso"
+  },
+  {
+   "arquivo": "intenso-rising-energy.mp3",
+   "url": "https://cdn.pixabay.com/download/audio/2025/04/14/audio_114fd82a5b.mp3",
+   "clima": "intenso"
+  }
+ ]
+}

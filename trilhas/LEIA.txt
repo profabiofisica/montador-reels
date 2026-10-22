@@ -1,3 +1,5 @@
-Coloque aqui trilhas sem direitos autorais (mp3 ou m4a), por exemplo da
-Biblioteca de áudio do YouTube. O montador sorteia uma por reels.
-Sem trilha, o reels sai sem som e a música é escolhida no Instagram.
+Músicas sem direitos autorais para os reels (mp3 ou m4a).
+O nome do arquivo começa pelo clima: animado, inspirador, calmo ou intenso.
+O montador usa uma do mesmo clima do reels; sem música aqui, ele compõe uma.
+As do Pixabay vêm da lista pixabay.json: o workflow Trilhas baixa sozinho
+o que estiver na lista e ainda não estiver na pasta.

@@ -1,0 +1,29 @@
+# Baixa para trilhas/ as músicas da lista trilhas/pixabay.json e salva no repositório.
+# Roda quando a lista muda, toda segunda de manhã, ou na mão.
+name: Trilhas
+on:
+  push:
+    branches: [main]
+    paths: ["trilhas/pixabay.json", "baixar_trilhas.py", ".github/workflows/trilhas.yml"]
+  schedule:
+    - cron: "17 11 * * 1"
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: trilhas
+jobs:
+  baixar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 baixar_trilhas.py
+      - name: Salvar
+        run: |
+          git add trilhas/*.mp3 || true
+          if git diff --cached --quiet; then echo "nada novo"; exit 0; fi
+          git config user.name "rca-trilhas"
+          git config user.email "trilhas@agenciarca.com.br"
+          git commit -m "Trilhas: músicas novas do Pixabay"
+          git push

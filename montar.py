@@ -182,11 +182,14 @@ def cena(t, s, n, pasta, clipes):
     return saida
 
 
-def trilha():
+def trilha(clima=""):
+    """música da pasta trilhas/, de preferência do mesmo clima (nome começa pelo clima)."""
     if not os.path.isdir(TRILHAS):
         return None
-    ops = [os.path.join(TRILHAS, f) for f in os.listdir(TRILHAS) if f.lower().endswith((".mp3", ".m4a", ".wav"))]
-    return random.choice(ops) if ops else None
+    ops = [f for f in os.listdir(TRILHAS) if f.lower().endswith((".mp3", ".m4a", ".wav"))]
+    mesmo = [f for f in ops if clima and f.lower().startswith(clima.lower())]
+    escolha = mesmo or ops
+    return os.path.join(TRILHAS, random.choice(escolha)) if escolha else None
 
 
 TRANS = ["fade", "slideleft", "smoothup", "circleopen", "slideup", "fadeblack", "smoothleft", "zoomin"]
@@ -290,7 +293,9 @@ def montar(t, pasta):
             log("  trilha do Drive falhou:", e)
             mus = None
     if not mus:
-        mus = trilha()
+        mus = trilha(t.get("clima", ""))
+        if mus:
+            log("  trilha da pasta:", os.path.basename(mus))
     if not mus and musica:
         try:
             mus = musica.salvar(os.path.join(pasta, "trilha.wav"), total + 0.5, t.get("clima", "inspirador"))
