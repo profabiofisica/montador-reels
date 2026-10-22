@@ -1,10 +1,13 @@
-# Montador de reels da Agência RCA: a cada hora pergunta ao admin se tem
+# Montador de reels da Agência RCA: a cada 20 min pergunta ao admin se tem
 # reels para montar. Também dá para rodar na mão (Actions > Montar reels > Run workflow).
 name: Montar reels
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "*/20 * * * *"
   workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: [".github/workflows/reels.yml", "montar.py"]
 concurrency:
   group: reels
   cancel-in-progress: false
