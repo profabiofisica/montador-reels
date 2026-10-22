@@ -15,7 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ffmpeg
-        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            curl -sSL --retry 3 -o /tmp/ff.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+            mkdir -p /tmp/ff && tar -xJf /tmp/ff.tar.xz -C /tmp/ff --strip-components=1
+            echo "/tmp/ff" >> "$GITHUB_PATH"
+          fi
+        timeout-minutes: 5
       - name: Montar
         env:
           RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
