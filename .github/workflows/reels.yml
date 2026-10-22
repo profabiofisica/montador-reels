@@ -1,0 +1,23 @@
+# Montador de reels da Agência RCA: a cada hora pergunta ao admin se tem
+# reels para montar. Também dá para rodar na mão (Actions > Montar reels > Run workflow).
+name: Montar reels
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+concurrency:
+  group: reels
+  cancel-in-progress: false
+jobs:
+  montar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg
+        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - name: Montar
+        env:
+          RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
+          RCA_BASE: ${{ vars.RCA_BASE || 'https://agenciarca.com.br' }}
+        run: python3 montar.py
