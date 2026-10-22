@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   montar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -21,10 +21,10 @@ jobs:
         run: |
           # mesmo ffmpeg do teste (Ubuntu); o estático baixado de fora quebrava o drawtext
           if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+            sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core >/dev/null
           fi
           ffmpeg -version | head -1
-        timeout-minutes: 5
+        timeout-minutes: 12
       - name: Montar
         env:
           RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
