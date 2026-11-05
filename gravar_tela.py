@@ -68,8 +68,10 @@ def gravar(t, pasta):
     html = relatorio(t, pasta)
     with sync_playwright() as p:
         nav = p.chromium.launch()
-        ctx = nav.new_context(viewport={"width": 432, "height": 768}, device_scale_factor=2.5, locale="pt-BR",
-                              record_video_dir=pasta, record_video_size={"width": 1080, "height": 1920})
+        # 05/11/2026: o vídeo sai no tamanho da tela do navegador; com 1080x1920 sobre uma tela de 432x768 a
+        # página ficava num canto e o resto cinza (Reels 443). Tela e vídeo do mesmo tamanho e o ffmpeg amplia.
+        ctx = nav.new_context(viewport={"width": 540, "height": 960}, device_scale_factor=2, locale="pt-BR",
+                              record_video_dir=pasta, record_video_size={"width": 540, "height": 960})
         pg = ctx.new_page()
         pg.goto(Path(html).resolve().as_uri())
         # a nota real aparece no medidor do relatório
@@ -107,7 +109,7 @@ def main():
                 log(f"post {t['id']}: o teste não terminou; nada enviado")
                 continue
             mp4 = os.path.join(tmp, "tela.mp4")
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", webm, "-vf", "scale=1080:1920,fps=30",
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", webm, "-vf", "scale=1080:1920:flags=lanczos,fps=30",
                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-pix_fmt", "yuv420p", "-an", mp4], check=True)
             r = enviar(t["id"], mp4)
             log(f"post {t['id']}: {r.get('mensagem')}")
