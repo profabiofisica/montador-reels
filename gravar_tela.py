@@ -3,12 +3,15 @@
 
 Quando o briefing de um Reels pede "gravar a tela durante um teste real do PageSpeed
 Insights", ninguém precisa sentar no computador: este script pergunta ao admin quais
-Reels esperam gravação, abre o teste de verdade no pagespeed.web.dev num Chromium,
-grava a tela em formato vertical (1080x1920), espera o resultado do dia aparecer,
-rola até as recomendações e manda o mp4 para o admin, que guarda na pasta do mês
-de "reels · vídeos brutos" no Drive do cliente. O Tom usa esse vídeo como vídeo real.
+Reels esperam gravação, pede ao admin o teste real do dia (API oficial do PageSpeed,
+com a conexão Google da RCA), abre o relatório oficial do Lighthouse com esse resultado
+(o mesmo motor e o mesmo visual do pagespeed.web.dev, em português), grava a tela em
+formato vertical (1080x1920), rola até as recomendações e manda o mp4 para o admin, que
+guarda na pasta do mês de "reels · vídeos brutos" no Drive do cliente.
 
-Nada é simulado: se o teste não terminar, não há envio.
+05/11/2026: a página pagespeed.web.dev não termina o teste em navegador de nuvem (a cota
+do IP compartilhado estoura). Por isso o teste roda pela API e só o relatório é aberto aqui.
+Nada é simulado: sem resultado real, não há envio.
 """
 import json
 import os
@@ -34,7 +37,7 @@ def pedir(caminho, metodo="GET", corpo=None, tipo=None):
     req.add_header("User-Agent", "rca-gravar-tela/1.0")
     if tipo:
         req.add_header("Content-Type", tipo)
-    with urllib.request.urlopen(req, timeout=180) as r:
+    with urllib.request.urlopen(req, timeout=240) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
@@ -46,25 +49,36 @@ def enviar(post_id, mp4):
     return pedir("?acao=enviar", "POST", corpo, "multipart/form-data; boundary=" + b)
 
 
+def relatorio(t, pasta):
+    """teste real do dia pelo admin e relatório oficial do Lighthouse em HTML."""
+    lhr = pedir(f"?acao=psi&id={t['id']}")
+    if not lhr.get("ok"):
+        raise RuntimeError(lhr.get("mensagem", "sem resultado do PageSpeed"))
+    js = os.path.join(pasta, "psi.json")
+    with open(js, "w", encoding="utf-8") as f:
+        json.dump(lhr, f)
+    html = os.path.join(pasta, "relatorio.html")
+    subprocess.run(["node", os.path.join(os.path.dirname(os.path.abspath(__file__)), "gerar_relatorio.mjs"), js, html], check=True)
+    return html
+
+
 def gravar(t, pasta):
+    from pathlib import Path
     from playwright.sync_api import sync_playwright
+    html = relatorio(t, pasta)
     with sync_playwright() as p:
         nav = p.chromium.launch()
         ctx = nav.new_context(viewport={"width": 432, "height": 768}, device_scale_factor=2.5, locale="pt-BR",
                               record_video_dir=pasta, record_video_size={"width": 1080, "height": 1920})
         pg = ctx.new_page()
-        pg.goto(t["teste"], wait_until="domcontentloaded", timeout=60000)
-        # espera o resultado real do teste (a nota de desempenho aparece no medidor)
-        fim = time.time() + 150
-        ok = False
-        while time.time() < fim:
-            txt = pg.inner_text("body")
-            if ("Desempenho" in txt or "Performance" in txt) and ("Diagnosticar" in txt or "Diagnose" in txt or "Oportunidades" in txt or "Métricas" in txt):
-                ok = True
-                break
-            pg.wait_for_timeout(2000)
+        pg.goto(Path(html).resolve().as_uri())
+        # a nota real aparece no medidor do relatório
+        pg.wait_for_selector(".lh-gauge__percentage", timeout=30000, state="attached")
+        nota = pg.locator(".lh-gauge__percentage").first.inner_text().strip()
+        ok = nota.isdigit()
         if ok:
-            pg.wait_for_timeout(3000)
+            log(f"post {t['id']}: desempenho {nota} no celular")
+            pg.wait_for_timeout(3500)
             # rola devagar até as recomendações reais
             for _ in range(14):
                 pg.mouse.wheel(0, 220)

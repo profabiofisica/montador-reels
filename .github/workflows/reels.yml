@@ -17,18 +17,35 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      # 05/11/2026: pergunta a fila antes de instalar nada (rodada vazia termina em segundos)
+      - name: Tem reels na fila?
+        id: fila
+        env:
+          RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
+        run: |
+          n=$(curl -s --max-time 60 -H "X-Reels-Token: $RCA_REELS_TOKEN" "${{ vars.RCA_BASE || 'https://agenciarca.com.br' }}/portal-admin/api/reels.php?acao=fila&so_contar=1" | python3 -c "import json,sys
+try: print(len(json.load(sys.stdin).get('trabalhos') or []))
+except Exception: print(1)")
+          echo "n=$n" >> "$GITHUB_OUTPUT"; echo "$n na fila"
       - name: ffmpeg
+        if: steps.fila.outputs.n != '0'
         run: |
           # mesmo ffmpeg do teste (Ubuntu); o estático baixado de fora quebrava o drawtext
-          if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core >/dev/null
-          fi
+          # 05/11/2026: o espelho do apt às vezes trava; até 3 tentativas de 4 min antes de desistir
+          for i in 1 2 3; do
+            command -v ffmpeg >/dev/null && break
+            sudo timeout 240 apt-get update -qq || true
+            sudo timeout 240 apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core >/dev/null && break
+            echo "apt falhou (tentativa $i)"; sleep 20
+          done
           ffmpeg -version | head -1
-        timeout-minutes: 12
+        timeout-minutes: 14
       - name: numpy (trilha composta)
+        if: steps.fila.outputs.n != '0'
         run: python3 -c "import numpy" 2>/dev/null || sudo apt-get install -y -qq --no-install-recommends python3-numpy >/dev/null || python3 -m pip install --user -q numpy
         timeout-minutes: 6
       - name: Montar
+        if: steps.fila.outputs.n != '0'
         env:
           RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
           RCA_BASE: ${{ vars.RCA_BASE || 'https://agenciarca.com.br' }}

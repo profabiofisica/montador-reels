@@ -7,7 +7,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: [".github/workflows/gravar-tela.yml", "gravar_tela.py"]
+    paths: [".github/workflows/gravar-tela.yml", "gravar_tela.py", "gerar_relatorio.mjs"]
 concurrency:
   group: gravar-tela
   cancel-in-progress: false
@@ -27,6 +27,7 @@ jobs:
       - name: Navegador e ffmpeg
         if: steps.fila.outputs.n != '0'
         run: |
+          npm i --no-save --silent lighthouse@12 >/dev/null
           pip install --quiet playwright==1.48.0
           python3 -m playwright install --with-deps chromium >/dev/null
           sudo apt-get install -y -qq ffmpeg >/dev/null
