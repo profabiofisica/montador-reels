@@ -31,7 +31,7 @@ import urllib.request
 
 from PIL import Image, ImageOps
 
-VERSAO = "1.0"
+VERSAO = "1.1"
 BASE = os.environ.get("RCA_BASE", "https://agenciarca.com.br").rstrip("/")
 TOKEN = os.environ.get("RCA_REELS_TOKEN", "")
 API = "/portal-admin/api/arte-revisora.php"
@@ -196,8 +196,10 @@ def contraste(im_rgb, p):
 
 
 # ---------- revisão de uma peça ----------
-def revisar_peca(caminho, canal, esperado, vocab, livres):
+def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_ctx=None):
     furos = []
+    vocab_post = vocab if vocab_post is None else vocab_post
+    num_ctx = num_ctx or set()
     im = Image.open(caminho).convert("RGB")
     w, h = im.size
     ok_tam = TAMANHOS.get(canal)
@@ -216,6 +218,20 @@ def revisar_peca(caminho, canal, esperado, vocab, livres):
         if re.fullmatch(r"[0-9.@]+", n):
             continue
         estranhas.append(p["txt"])
+    # 2b. número na arte que não está no texto deste post (05/11/2026, alucinação): nota, avaliações, preço, ano e
+    # porcentagem só valem se o briefing do post traz o número. Do contexto do cliente só passam telefone e CEP (8+ dígitos).
+    so_dig = lambda x: re.sub(r"\D", "", x)
+    nums_post = {so_dig(v) for v in vocab_post | livres if so_dig(v)}
+    inventados = []
+    for p in lidas:
+        d = so_dig(p["n"])
+        if len(d) < 2 or d in nums_post or any(d in q for q in nums_post if len(q) >= 8):
+            continue
+        if len(d) >= 8 and any(d in q or q in d for q in num_ctx):
+            continue
+        inventados.append(p["txt"])
+    if inventados:
+        furos.append("número na arte que não está no texto do post (sem fonte no card): " + ", ".join(inventados[:6]))
     # leitura com confiança baixa onde deveria haver texto do briefing = letra embaralhada
     ruins = [p["txt"] for p in pal if 0 <= p["conf"] < 45 and len(p["n"]) >= 4 and p["n"] not in livres]
     if len(estranhas) >= 2:
@@ -274,6 +290,8 @@ def revisar_peca(caminho, canal, esperado, vocab, livres):
 def revisar(t, tmp):
     briefing = t.get("briefing") or ""
     vocab = set(palavras(briefing + " " + (t.get("titulo") or "") + " " + " ".join(t.get("textos_extra") or [])))
+    vocab_post = set(vocab)
+    num_ctx = {d for d in (re.sub(r"\D", "", x) for x in re.findall(r"[\d().\- ]{8,}", t.get("vocab_contexto") or "")) if len(d) >= 8}
     # texto fixo do molde e da marca (assinatura, "link na bio", "loja física e online") vem do contexto aprovado do cliente
     vocab |= set(palavras(t.get("vocab_contexto") or ""))
     livres = set(palavras(" ".join(t.get("livres") or [])))
@@ -297,7 +315,7 @@ def revisar(t, tmp):
         esp = p.get("esperado") or esperado_da_peca(briefing, canal, i_feed if canal in ("lamina", "feed") else 0, n_feed)
         if canal in ("lamina", "feed"):
             i_feed += 1
-        fs, d = revisar_peca(arq, canal, esp, vocab, livres)
+        fs, d = revisar_peca(arq, canal, esp, vocab, livres, vocab_post, num_ctx)
         nome = f"peça {k + 1} ({'lâmina ' + str(i_feed) if canal == 'lamina' else canal})"
         furos += [f"{nome}: {f}" for f in fs]
         det.append({"peca": k + 1, "canal": canal, **d, "furos": len(fs)})
