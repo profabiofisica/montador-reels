@@ -274,6 +274,8 @@ def revisar_peca(caminho, canal, esperado, vocab, livres):
 def revisar(t, tmp):
     briefing = t.get("briefing") or ""
     vocab = set(palavras(briefing + " " + (t.get("titulo") or "") + " " + " ".join(t.get("textos_extra") or [])))
+    # texto fixo do molde e da marca (assinatura, "link na bio", "loja física e online") vem do contexto aprovado do cliente
+    vocab |= set(palavras(t.get("vocab_contexto") or ""))
     livres = set(palavras(" ".join(t.get("livres") or [])))
     pecas = t.get("pecas") or []
     n_feed = sum(1 for p in pecas if p.get("canal") in ("lamina", "feed"))
