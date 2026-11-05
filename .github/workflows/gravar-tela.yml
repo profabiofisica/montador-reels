@@ -1,0 +1,37 @@
+# Gravação real de tela para Reels (PageSpeed Insights): a cada hora pergunta ao admin
+# se algum Reels espera gravação; se espera, grava o teste de verdade e manda o vídeo.
+name: Gravar tela
+on:
+  schedule:
+    - cron: "37 * * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: [".github/workflows/gravar-tela.yml", "gravar_tela.py"]
+concurrency:
+  group: gravar-tela
+  cancel-in-progress: false
+jobs:
+  gravar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tem gravação na fila?
+        id: fila
+        env:
+          RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
+        run: |
+          n=$(curl -s -H "X-Reels-Token: $RCA_REELS_TOKEN" "https://agenciarca.com.br/portal-admin/api/reels-gravacao.php?acao=fila" | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('trabalhos') or []))")
+          echo "n=$n" >> "$GITHUB_OUTPUT"; echo "$n na fila"
+      - name: Navegador e ffmpeg
+        if: steps.fila.outputs.n != '0'
+        run: |
+          pip install --quiet playwright==1.48.0
+          python3 -m playwright install --with-deps chromium >/dev/null
+          sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: Gravar
+        if: steps.fila.outputs.n != '0'
+        env:
+          RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
+        run: python3 gravar_tela.py
