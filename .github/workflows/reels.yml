@@ -23,9 +23,7 @@ jobs:
         env:
           RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
         run: |
-          n=$(curl -s --max-time 60 -H "X-Reels-Token: $RCA_REELS_TOKEN" "${{ vars.RCA_BASE || 'https://agenciarca.com.br' }}/portal-admin/api/reels.php?acao=fila&so_contar=1" | python3 -c "import json,sys
-try: print(len(json.load(sys.stdin).get('trabalhos') or []))
-except Exception: print(1)")
+          n=$(curl -s --max-time 60 -H "X-Reels-Token: $RCA_REELS_TOKEN" "https://agenciarca.com.br/portal-admin/api/reels.php?acao=fila&so_contar=1" | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("trabalhos") or []))' || echo 1)
           echo "n=$n" >> "$GITHUB_OUTPUT"; echo "$n na fila"
       - name: ffmpeg
         if: steps.fila.outputs.n != '0'
