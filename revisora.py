@@ -31,7 +31,7 @@ import urllib.request
 
 from PIL import Image, ImageOps
 
-VERSAO = "1.1"
+VERSAO = "1.2"
 BASE = os.environ.get("RCA_BASE", "https://agenciarca.com.br").rstrip("/")
 TOKEN = os.environ.get("RCA_REELS_TOKEN", "")
 API = "/portal-admin/api/arte-revisora.php"
@@ -196,7 +196,7 @@ def contraste(im_rgb, p):
 
 
 # ---------- revisão de uma peça ----------
-def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_ctx=None):
+def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_ctx=None, es_bloco=True):
     furos = []
     vocab_post = vocab if vocab_post is None else vocab_post
     num_ctx = num_ctx or set()
@@ -210,6 +210,7 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
     escala = w / 1080.0
     lidas = [p for p in pal if p["conf"] >= 55]
     # 2a. palavra na arte que não existe no briefing (encavalada, cortada ou inventada)
+    avisos = []
     estranhas = []
     for p in lidas:
         n = p["n"]
@@ -227,6 +228,9 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
         d = so_dig(p["n"])
         if len(d) < 2 or d in nums_post or any(d in q for q in nums_post if len(q) >= 8):
             continue
+        # 1.2: ano, hora de tela (9:41) e número de 2 dígitos sem % ou R$ não são dado inventado
+        if re.fullmatch(r"(19|20)\d\d", d) or re.search(r"\d{1,2}:\d{2}", p["txt"]) or (len(d) == 2 and not re.search(r"%|r\$", p["txt"].lower())):
+            continue
         if len(d) >= 8 and any(d in q or q in d for q in num_ctx):
             continue
         inventados.append(p["txt"])
@@ -234,12 +238,15 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
         furos.append("número na arte que não está no texto do post (sem fonte no card): " + ", ".join(inventados[:6]))
     # leitura com confiança baixa onde deveria haver texto do briefing = letra embaralhada
     ruins = [p["txt"] for p in pal if 0 <= p["conf"] < 45 and len(p["n"]) >= 4 and p["n"] not in livres]
-    if len(estranhas) >= 2:
-        furos.append("texto que não está no briefing ou ilegível na arte: " + ", ".join(estranhas[:8]))
+    # 1.2 (05/11/2026, calibrada contra 45 artes aprovadas pela Fabi): ruído do OCR em foto não reprova
+    firmes = [p["txt"] for p in lidas if p["conf"] >= 80 and p["txt"] in estranhas]
+    if len(firmes) >= 4:
+        furos.append("texto que não está no briefing ou ilegível na arte: " + ", ".join(firmes[:8]))
+    elif len(estranhas) >= 2:
+        avisos.append("conferir texto lido fora do briefing: " + ", ".join(estranhas[:8]))
     # 2c. letras encavaladas (espaçamento negativo no título): blocos de letra << número de letras
     grudadas = [p["txt"] for p in lidas if len(p["n"]) >= 5 and p["h"] >= 30 * escala
                 and colunas_de_letra(im, p) < 0.6 * len(p["n"])]
-    avisos = []
     if len(grudadas) >= 2:     # só aviso: em foto e faixa colorida a medida ainda erra
         avisos.append("conferir espaçamento entre letras: " + ", ".join(grudadas[:6]))
     # 2d. palavras grudadas sem espaço ("Temsite" = tem + site): espaçamento negativo entre palavras
@@ -250,13 +257,13 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
             continue
         for i in range(2, len(n) - 1):
             a, b = n[:i], n[i:]
-            if a in vocab and b in vocab and len(b) >= 2:
+            if a in vocab and b in vocab and len(a) >= 3 and len(b) >= 3 and not re.search(r"[áéíóúâêôãõç\-]", p["txt"].lower()):
                 juntas.append(f"{p['txt']} ({a} {b})")
                 break
     if juntas:
         furos.append("palavras grudadas, sem espaço entre elas: " + ", ".join(juntas[:6]))
-    if len(ruins) >= 3:
-        furos.append("letras difíceis de ler (encavaladas, cortadas ou sem contraste): " + ", ".join(ruins[:8]))
+    if len(ruins) >= 3:     # 1.2: aviso (em 45 artes aprovadas, 15 tinham isso por causa de foto e textura)
+        avisos.append("conferir letras difíceis de ler: " + ", ".join(ruins[:8]))
     # 2b. texto do briefing que não apareceu na arte
     exp = [x for x in palavras(esperado) if len(x) >= 4]
     if exp:
@@ -264,13 +271,16 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
         faltam = [x for x in exp if x not in achadas and not any(x in a or a in x for a in achadas if len(a) >= 4)]
         cobertura = 1 - len(faltam) / len(exp)
         minimo = 0.6 if canal == "stories" else 0.8
+        # 1.2: texto esperado tirado de citação solta do briefing (sem bloco da lâmina) é palpite; só reprova abaixo de 40% e com 4+ palavras
+        if not es_bloco:
+            minimo = 0.4 if len(exp) >= 4 else 0.0
         if cobertura < minimo:
             furos.append(f"texto do briefing faltando ou ilegível ({int(cobertura * 100)}% lido; faltou: {', '.join(faltam[:8])})")
     # 3. leitura: letra pequena e contraste
     corpo = [p for p in lidas if p["n"] in vocab and p["n"] not in livres and len(p["n"]) >= 3]
     alt_min = ALTURA_MIN.get(canal, 20) * escala
     pequenas = [p for p in corpo if p["h"] < alt_min]
-    if len(pequenas) >= 4:
+    if len(pequenas) >= (5 if canal == "stories" else 8) and len(pequenas) >= 0.25 * max(1, len(corpo)):
         furos.append(f"texto pequeno demais para o celular: {len(pequenas)} palavras com menos de {int(alt_min)} px de altura (ex.: {', '.join(p['txt'] for p in pequenas[:5])})")
     baixas = [p["txt"] for p in corpo if contraste(im, p) < CONTRASTE_MIN]
     if len(baixas) >= 3:
@@ -282,8 +292,8 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
         furos.append("texto encostado ou cortado na borda: " + ", ".join(na_borda[:6]))
     if canal == "stories":
         fora = [p["txt"] for p in corpo if p["y"] < SEGURA_STORIES or p["y"] + p["h"] > h - SEGURA_STORIES]
-        if fora:
-            furos.append(f"texto fora da área segura do Stories ({SEGURA_STORIES} px de cima e de baixo): " + ", ".join(fora[:6]))
+        if fora:     # 1.2: aviso (a diretoria aprovou 11 Stories com texto nessa faixa)
+            avisos.append(f"texto fora da área segura do Stories ({SEGURA_STORIES} px de cima e de baixo): " + ", ".join(fora[:6]))
     return furos, {"tamanho": f"{w}x{h}", "palavras_lidas": len(lidas), "avisos": avisos}
 
 
@@ -313,9 +323,11 @@ def revisar(t, tmp):
         except Exception:  # noqa: BLE001
             pass
         esp = p.get("esperado") or esperado_da_peca(briefing, canal, i_feed if canal in ("lamina", "feed") else 0, n_feed)
+        lam_b = blocos_laminas(briefing)
+        es_bloco = bool(p.get("esperado")) or (canal in ("lamina", "feed") and bool(lam_b) and len(lam_b) >= n_feed)
         if canal in ("lamina", "feed"):
             i_feed += 1
-        fs, d = revisar_peca(arq, canal, esp, vocab, livres, vocab_post, num_ctx)
+        fs, d = revisar_peca(arq, canal, esp, vocab, livres, vocab_post, num_ctx, es_bloco)
         nome = f"peça {k + 1} ({'lâmina ' + str(i_feed) if canal == 'lamina' else canal})"
         furos += [f"{nome}: {f}" for f in fs]
         det.append({"peca": k + 1, "canal": canal, **d, "furos": len(fs)})
