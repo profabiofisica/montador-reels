@@ -1,0 +1,55 @@
+# Vigia da Agência RCA (05/11/2026): o agendamento do GitHub atrasava horas (a revisora não rodou
+# nenhuma vez num dia inteiro e o montador rodou 5 vezes em 30 horas). O vigia fica ligado e, a cada
+# 2 minutos, pergunta ao admin se tem arte para revisar, reels para montar ou tela para gravar; quando
+# tem, aciona a rotina na hora. Antes de 6 horas ele se religa sozinho (workflow_dispatch pelo
+# GITHUB_TOKEN é permitido). O horário de hora em hora só serve para religar se a corrente quebrar.
+# Repositório público: os minutos do Actions não custam nada.
+name: Vigia
+on:
+  schedule:
+    - cron: "11 * * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: [".github/workflows/vigia.yml"]
+concurrency:
+  group: vigia
+  cancel-in-progress: false
+permissions:
+  actions: write
+  contents: read
+jobs:
+  vigiar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 345
+    steps:
+      - name: Vigiar a fila
+        env:
+          RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          base="https://agenciarca.com.br/portal-admin/api"
+          conta() { curl -s --max-time 40 -H "X-Reels-Token: $RCA_REELS_TOKEN" "$1" | python3 -c "$2" 2>/dev/null || echo 0; }
+          aciona() {
+            curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/actions/workflows/$1/dispatches" -d '{"ref":"main"}'
+            echo " acionou $1"
+          }
+          rodando() {
+            curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$REPO/actions/workflows/$1/runs?per_page=5" \
+              | python3 -c "import json,sys; r=json.load(sys.stdin).get('workflow_runs') or []; print(sum(1 for x in r if x.get('status') in ('queued','in_progress','waiting')))" 2>/dev/null || echo 0
+          }
+          fim=$(( $(date +%s) + 5*3600 + 30*60 ))
+          while [ "$(date +%s)" -lt "$fim" ]; do
+            rv=$(conta "$base/arte-revisora.php?acao=contar" "import json,sys; print(json.load(sys.stdin).get('n') or 0)")
+            rl=$(conta "$base/reels.php?acao=fila&so_contar=1" "import json,sys; print(len(json.load(sys.stdin).get('trabalhos') or []))")
+            gt=$(conta "$base/reels-gravacao.php?acao=fila" "import json,sys; print(len(json.load(sys.stdin).get('trabalhos') or []))")
+            echo "$(date -u +%H:%M) revisora=$rv montador=$rl gravacao=$gt"
+            [ "${rv:-0}" != "0" ] && [ "$(rodando revisora.yml)" = "0" ] && aciona revisora.yml
+            [ "${rl:-0}" != "0" ] && [ "$(rodando reels.yml)" = "0" ] && aciona reels.yml
+            [ "${gt:-0}" != "0" ] && [ "$(rodando gravar-tela.yml)" = "0" ] && aciona gravar-tela.yml
+            sleep 120
+          done
+          # religa antes do limite de 6 horas do GitHub
+          aciona vigia.yml
