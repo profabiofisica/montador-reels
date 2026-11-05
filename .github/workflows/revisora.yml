@@ -1,0 +1,31 @@
+# Revisora de artes da Agência RCA: a cada 20 min pergunta ao admin se tem
+# arte da Criative esperando a segunda revisão (tamanho, texto igual ao briefing,
+# leitura e margens). Também dá para rodar na mão (Actions > Revisar artes > Run workflow).
+name: Revisar artes
+on:
+  schedule:
+    - cron: "7,27,47 * * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: [".github/workflows/revisora.yml", "revisora.py"]
+concurrency:
+  group: revisora
+  cancel-in-progress: false
+jobs:
+  revisar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: tesseract (português) e Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends tesseract-ocr tesseract-ocr-por python3-pil >/dev/null
+          tesseract --version | head -1
+        timeout-minutes: 8
+      - name: Revisar
+        env:
+          RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
+          RCA_BASE: ${{ vars.RCA_BASE || 'https://agenciarca.com.br' }}
+        run: python3 revisora.py
