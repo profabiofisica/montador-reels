@@ -13,6 +13,7 @@ Só usa a biblioteca padrão do Python e o ffmpeg.
 import json
 import os
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -27,7 +28,7 @@ try:
 except Exception:  # noqa: BLE001
     musica = None
 
-VERSAO = "2.0"
+VERSAO = "2.1"
 BASE = os.environ.get("RCA_BASE", "https://agenciarca.com.br").rstrip("/")
 TOKEN = os.environ.get("RCA_REELS_TOKEN", "")
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -304,6 +305,7 @@ def montar(t, pasta):
             log("  sem trilha:", e)
             mus = None
     final = os.path.join(pasta, "reels.mp4")
+    t["_total"], t["_trilha"], t["_voz"] = total, bool(mus), bool(voz)
     fim = f"afade=t=out:st={max(0, total-1.4):.2f}:d=1.4"
     if voz and mus:
         fc = (f"[1:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=1.6,adelay=250|250,apad[vz];"
@@ -323,6 +325,40 @@ def montar(t, pasta):
         ff("-i", junto, "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-map", "0:v", "-map", "1:a",
            "-t", f"{total:.2f}", "-c:v", "copy", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", final)
     return final
+
+
+def conferir(t, arq):
+    """Revisora de vídeo (05/11/2026): o Reels só chega à revisão da diretoria sem erro mecânico.
+    Mede o arquivo pronto; achou furo, não entrega (o admin registra e o reels volta para a fila)."""
+    furos = []
+    pr = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height", "-of", "json", arq],
+                        capture_output=True, text=True)
+    st = (json.loads(pr.stdout or "{}").get("streams") or [])
+    vid = next((s for s in st if s.get("codec_type") == "video"), None)
+    if not vid or (vid.get("width"), vid.get("height")) != (int(t["w"]), int(t["h"])):
+        furos.append(f"tamanho {vid and vid.get('width')}x{vid and vid.get('height')} (esperado {t['w']}x{t['h']})")
+    dur = sondar(arq)
+    if dur < 5 or abs(dur - float(t.get("_total") or dur)) > 1.5:
+        furos.append(f"duração {dur:.1f}s (esperado {float(t.get('_total') or 0):.1f}s)")
+    if not any(s.get("codec_type") == "audio" for s in st):
+        furos.append("sem faixa de áudio")
+    elif not t.get("_trilha"):
+        furos.append("sem trilha (reels sem trilha não sai)")
+    else:
+        r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", arq, "-map", "0:a", "-af", "volumedetect", "-f", "null", "-"],
+                           capture_output=True, text=True)
+        m = re.search(r"mean_volume:\s*(-?[\d.]+)", r.stderr)
+        mx = re.search(r"max_volume:\s*(-?[\d.]+)", r.stderr)
+        if not m or float(m.group(1)) < -35 or (mx and float(mx.group(1)) < -20):
+            furos.append(f"áudio baixo ou mudo (média {m.group(1) if m else '?'} dB)")
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", arq, "-vf", "blackdetect=d=1.2:pic_th=0.97", "-an", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    pretos = re.findall(r"black_duration:([\d.]+)", r.stderr)
+    if pretos:
+        furos.append(f"tela preta de {max(float(x) for x in pretos):.1f}s")
+    if furos:
+        raise RuntimeError("Revisora de vídeo: " + "; ".join(furos))
+    log(f"  revisora de vídeo: passou ({dur:.1f}s, {vid['width']}x{vid['height']}, áudio ok)")
 
 
 def entregar(t, arq):
@@ -350,6 +386,7 @@ def main():
         pasta = tempfile.mkdtemp(prefix=f"reels{t['id']}_")
         try:
             arq = montar(t, pasta)
+            conferir(t, arq)
             log(f"  pronto: {os.path.getsize(arq) // 1024} KB, entregando")
             r = entregar(t, arq)
             log("  ", r.get("mensagem", "entregue"))
