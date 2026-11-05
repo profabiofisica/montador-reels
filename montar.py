@@ -28,7 +28,7 @@ try:
 except Exception:  # noqa: BLE001
     musica = None
 
-VERSAO = "2.2"
+VERSAO = "2.3"
 BASE = os.environ.get("RCA_BASE", "https://agenciarca.com.br").rstrip("/")
 TOKEN = os.environ.get("RCA_REELS_TOKEN", "")
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -138,6 +138,16 @@ def filtros_texto(texto, pasta, n, grande, w, h):
     return out
 
 
+def medir_imagem(arq):
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                            "-of", "csv=p=0:s=x", arq], capture_output=True, text=True, timeout=30)
+        a, b = r.stdout.strip().split("\n")[0].split("x")
+        return int(a), int(b)
+    except Exception:  # noqa: BLE001
+        return 0, 0
+
+
 def cena(t, s, n, pasta, clipes):
     w, h, fps = t["w"], t["h"], t["fps"]
     dur = float(s["dur"])
@@ -151,9 +161,20 @@ def cena(t, s, n, pasta, clipes):
         x = {0: "iw/2-(iw/zoom/2)", 1: "iw/2-(iw/zoom/2)", 2: "(iw-iw/zoom)*on/{q}", 3: "(iw-iw/zoom)*(1-on/{q})"}[modo].format(q=quadros)
         y = {0: "ih/2-(ih/zoom/2)", 1: "ih/2-(ih/zoom/2)", 2: "ih/2-(ih/zoom/2)", 3: "ih/3-(ih/zoom/3)"}[modo]
         entrada = ["-loop", "1", "-t", str(dur), "-i", clipes[s["arquivo"]]]
-        base = (f"[0:v]scale={w*2}:{h*2}:force_original_aspect_ratio=increase,crop={w*2}:{h*2},"
-                f"zoompan=z='{z}':x='{x}':y='{y}':d={quadros}:s={w}x{h}:fps={fps},setsar=1,"
-                f"eq=contrast=1.04:saturation=1.08,vignette=PI/5,format=yuv420p")
+        iw, ih = medir_imagem(clipes[s["arquivo"]])
+        if iw and ih and iw / ih > 0.8:
+            # 2.3 (05/11/2026): foto deitada ou quadrada num Reels em pé. O recorte no centro cortava as pessoas
+            # (as duas sócias saíam pela borda). A foto entra inteira na largura, sobre ela mesma desfocada,
+            # e o conjunto aproxima devagar.
+            z2 = "1.0+0.06*on/{q}".format(q=quadros)
+            base = (f"[0:v]split[a][b];[a]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},boxblur=28:2,eq=brightness=-0.08[fu];"
+                    f"[b]scale={w}:-2[fr];[fu][fr]overlay=(W-w)/2:(H-h)/2-{int(h*0.06)},"
+                    f"scale={w*2}:{h*2},zoompan=z='{z2}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={quadros}:s={w}x{h}:fps={fps},setsar=1,"
+                    f"eq=contrast=1.04:saturation=1.08,format=yuv420p")
+        else:
+            base = (f"[0:v]scale={w*2}:{h*2}:force_original_aspect_ratio=increase,crop={w*2}:{h*2},"
+                    f"zoompan=z='{z}':x='{x}':y='{y}':d={quadros}:s={w}x{h}:fps={fps},setsar=1,"
+                    f"eq=contrast=1.04:saturation=1.08,vignette=PI/5,format=yuv420p")
         grande = False
     elif s["tipo"] == "video":
         entrada = ["-ss", str(s["inicio"]), "-t", str(dur), "-i", clipes[s["arquivo"]]]
