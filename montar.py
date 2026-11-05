@@ -28,7 +28,7 @@ try:
 except Exception:  # noqa: BLE001
     musica = None
 
-VERSAO = "2.1"
+VERSAO = "2.2"
 BASE = os.environ.get("RCA_BASE", "https://agenciarca.com.br").rstrip("/")
 TOKEN = os.environ.get("RCA_REELS_TOKEN", "")
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -205,18 +205,43 @@ def sondar(arq):
         return 0.0
 
 
-def filtros_legenda(legs, pasta, w, h):
-    """legenda da fala, bloco a bloco, com entrada em 'pop' (estilo reels)."""
+def picar_legendas(legs):
+    """05/11/2026: legenda no ritmo dos Reels que performam: 1 a 3 palavras por vez (até 16 letras),
+    cada pedaço no tempo proporcional ao tamanho dentro do bloco da fala."""
     out = []
-    for i, l in enumerate(legs):
-        txt = " ".join(str(l.get("t", "")).split())
-        if not txt:
+    for l in legs:
+        pal = " ".join(str(l.get("t", "")).split()).split(" ")
+        pal = [x for x in pal if x]
+        if not pal:
             continue
+        a, b = float(l["a"]), float(l["b"])
+        grupos, atual = [], []
+        for x in pal:
+            if atual and (len(atual) >= 3 or len(" ".join(atual + [x])) > 16):
+                grupos.append(atual)
+                atual = []
+            atual.append(x)
+        if atual:
+            grupos.append(atual)
+        peso = [len(" ".join(g)) + 2 for g in grupos]
+        tot, t = sum(peso), a
+        for g, pw in zip(grupos, peso):
+            fim = t + (b - a) * pw / tot
+            out.append({"t": " ".join(g), "a": round(t, 3), "b": round(fim, 3)})
+            t = fim
+    return out
+
+
+def filtros_legenda(legs, pasta, w, h):
+    """legenda da fala, de 1 a 3 palavras por vez, com entrada em 'pop' (estilo reels)."""
+    out = []
+    for i, l in enumerate(picar_legendas(legs)):
+        txt = l["t"]
         arq = os.path.join(pasta, f"leg{i}.txt")
         with open(arq, "w", encoding="utf-8") as f:
             f.write(txt.upper())
         a, b = float(l["a"]), float(l["b"])
-        tam = 78 if len(txt) <= 14 else 66
+        tam = 96 if len(txt) <= 10 else 84
         out.append(
             f"drawtext=fontfile='{FONTE}':textfile='{arq}':fontcolor=white:fontsize='{tam}*(1+0.14*max(0\\,1-(t-{a:.2f})/0.12))'"
             f":x=(w-text_w)/2:y={int(h*0.68)}-text_h/2:borderw=7:bordercolor=0x2a1640"
