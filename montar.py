@@ -380,6 +380,20 @@ def montar(t, pasta):
     else:
         ff("-i", junto, "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-map", "0:v", "-map", "1:a",
            "-t", f"{total:.2f}", "-c:v", "copy", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", final)
+    # 2.5 (10/11/2026): o AAC passa o teto do limitador em música com ataque forte (443 saiu em -0,3 dB).
+    # Mede o pico do arquivo pronto e, se passar de -1 dB, baixa o volume até -1,6 dB (até 2 vezes).
+    for _ in range(2):
+        r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", final, "-map", "0:a", "-af", "volumedetect", "-f", "null", "-"],
+                           capture_output=True, text=True)
+        mx = re.search(r"max_volume:\s*(-?[\d.]+)", r.stderr)
+        if not mx or float(mx.group(1)) <= -1.0:
+            break
+        ajuste = -1.6 - float(mx.group(1))
+        tmp = os.path.join(pasta, "reels_pico.mp4")
+        ff("-i", final, "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", f"volume={ajuste:.2f}dB",
+           "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-movflags", "+faststart", tmp)
+        os.replace(tmp, final)
+        log(f"  pico {mx.group(1)} dB, volume ajustado em {ajuste:.2f} dB")
     return final
 
 
