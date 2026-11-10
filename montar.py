@@ -367,15 +367,15 @@ def montar(t, pasta):
         fc = (f"[1:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=1.6,adelay=250|250,apad[vz];"
               f"[2:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=0.42,afade=t=in:d=0.8[mu];"
               f"[vz]asplit=2[vz1][vz2];[mu][vz1]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=350[duck];"
-              f"[duck][vz2]amix=inputs=2:duration=first:normalize=0,{fim},loudnorm=I=-14:TP=-1.5:LRA=9,alimiter=limit=0.8:level=disabled[a]")
+              f"[duck][vz2]amix=inputs=2:duration=first:normalize=0,{fim},loudnorm=I=-14:TP=-1.5:LRA=9,aresample=44100,alimiter=limit=0.7:level=disabled[a]")
         ff("-i", junto, "-i", voz, "-stream_loop", "-1", "-i", mus, "-filter_complex", fc, "-map", "0:v", "-map", "[a]",
            "-t", f"{total:.2f}", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-movflags", "+faststart", final)
     elif voz:
-        ff("-i", junto, "-i", voz, "-filter_complex", f"[1:a]adelay=250|250,apad,{fim},loudnorm=I=-14:TP=-1.5,alimiter=limit=0.8:level=disabled[a]", "-map", "0:v", "-map", "[a]",
+        ff("-i", junto, "-i", voz, "-filter_complex", f"[1:a]adelay=250|250,apad,{fim},loudnorm=I=-14:TP=-1.5,aresample=44100,alimiter=limit=0.7:level=disabled[a]", "-map", "0:v", "-map", "[a]",
            "-t", f"{total:.2f}", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", final)
     elif mus:
         ff("-i", junto, "-stream_loop", "-1", "-i", mus, "-map", "0:v", "-map", "1:a", "-t", f"{total:.2f}",
-           "-af", f"volume=0.8,afade=t=in:d=0.6,{fim},loudnorm=I=-14:TP=-1.5,alimiter=limit=0.8:level=disabled",
+           "-af", f"volume=0.8,afade=t=in:d=0.6,{fim},loudnorm=I=-14:TP=-1.5,aresample=44100,alimiter=limit=0.7:level=disabled",
            "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", final)
     else:
         ff("-i", junto, "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-map", "0:v", "-map", "1:a",
