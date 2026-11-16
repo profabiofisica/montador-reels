@@ -1,0 +1,30 @@
+name: Revisora de conceito visual - RCA
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "scripts/revisora-conceito-visual.py"
+      - "tests/conceito-visual-rca-story-53.json"
+      - ".github/workflows/revisora-conceito-visual.yml"
+permissions:
+  contents: read
+jobs:
+  auditar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar dependencias tecnicas
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends tesseract-ocr tesseract-ocr-por python3-pil >/dev/null
+      - name: Revisar arte 53 contra conceito visual v8
+        run: python3 scripts/revisora-conceito-visual.py tests/conceito-visual-rca-story-53.json
+      - name: Disponibilizar relatorio
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revisora-conceito-visual-rca-53
+          path: relatorios/
+          if-no-files-found: warn
