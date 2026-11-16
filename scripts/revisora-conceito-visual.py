@@ -61,11 +61,27 @@ def main():
                 r=subprocess.run(["tesseract",artwork,"stdout","-l","por","--psm","11"],capture_output=True,text=True,timeout=50)
                 if r.returncode:errs.append("OCR indisponível: "+r.stderr[:130])
                 read=norm(r.stdout);details["ocr"]=r.stdout[:1200]
-                for phrase in cfg["texto_final"]:
+                regions=cfg.get("texto_regioes") or []
+                if regions and len(regions)!=len(cfg["texto_final"]):
+                    errs.append("texto_regioes deve acompanhar cada frase do texto_final")
+                for idx,phrase in enumerate(cfg["texto_final"]):
+                    detected=read
+                    if regions and idx<len(regions):
+                        rect=regions[idx]
+                        x,y,w,h=[int(rect[k]) for k in ("x","y","w","h")]
+                        if min(w,h)<=0 or x<0 or y<0 or x+w>im.width or y+h>im.height:
+                            errs.append("Região OCR fora da arte: "+phrase)
+                            continue
+                        cropped=os.path.join(tmp,"regiao-"+str(idx)+".png")
+                        im.crop((x,y,x+w,y+h)).save(cropped)
+                        o=subprocess.run(["tesseract",cropped,"stdout","-l","por","--psm","11"],capture_output=True,text=True,timeout=35)
+                        if o.returncode:errs.append("OCR regional indisponível: "+phrase)
+                        detected=norm(o.stdout)
+                        details.setdefault("ocr_regioes",[]).append({"frase":phrase,"texto_lido":o.stdout.strip()[:300]})
                     words=norm(phrase).split()
                     if words:
-                        coverage=sum(bool(re.search(r"\b"+re.escape(w)+r"\b",read)) for w in words)/len(words)
-                        if coverage<0.67:errs.append("Texto não conferiu OCR ("+str(round(coverage*100))+"%): "+phrase)
+                        coverage=sum(bool(re.search(r"\b"+re.escape(w)+r"\b",detected)) for w in words)/len(words)
+                        if coverage<0.75:errs.append("Texto não conferiu OCR ("+str(round(coverage*100))+"%): "+phrase)
                 fetch(cfg["logo_oficial_url"],logofile)
                 details["logo"]=logo_no_lugar(im,Image.open(logofile),cfg["logo_regiao"])
                 if details["logo"]["status"]!="OK":errs.append("Logo não validado: "+details["logo"]["motivo"])
