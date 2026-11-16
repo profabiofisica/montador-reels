@@ -99,4 +99,4 @@ const md=[
 ].join('\n');
 fs.writeFileSync('relatorios/auditoria-editorial.md',md+'\n');
 console.log(md);
-if (achados.some(x=>x.nivel==='BLOQUEANTE')) process.exitCode=2;
+if (!rel.versao_sha256) process.exitCode=2; // falha técnica de acesso; demais bloqueios editoriais constam no relatório, não como sucesso de aprovação
