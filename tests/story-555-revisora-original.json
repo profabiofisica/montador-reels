@@ -1,0 +1,18 @@
+{
+  "id": 555,
+  "titulo": "Story RCA alerta phishing após pane Microsoft",
+  "briefing": "STORY FINAL EXATO RCA V9, conceito V8, Marketing que vende, não só aparece | A pane da Microsoft passou. | Agora vem o golpe | Depois da pane do Microsoft 365, surgiram falsos avisos sobre e-mails retidos. Veja como reconhecer a fraude e proteger sua empresa. | LEIA O ARTIGO NO BLOG. A arte pertence à Agência RCA, tema segurança digital e phishing.",
+  "vocab_contexto": "agência RCA marketing que vende não só aparece RCA! Site blog profissional",
+  "livres": [
+    "agência",
+    "rca",
+    "RCA!"
+  ],
+  "pecas": [
+    {
+      "url": "https://agenciarca.com.br/portal-admin/uploads/editorial/c7/ref-4a51cf80814177f2.png",
+      "canal": "stories",
+      "esperado": "Marketing que vende, não só aparece A pane da Microsoft passou. Agora vem o golpe Depois da pane do Microsoft 365, surgiram falsos avisos sobre e-mails retidos. Veja como reconhecer a fraude e proteger sua empresa. LEIA O ARTIGO NO BLOG"
+    }
+  ]
+}
