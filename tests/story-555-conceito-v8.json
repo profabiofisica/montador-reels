@@ -1,0 +1,23 @@
+{
+  "cliente": "Agência RCA",
+  "conceito_versao": 8,
+  "arte_url": "https://agenciarca.com.br/portal-admin/uploads/editorial/c7/ref-4a51cf80814177f2.png",
+  "logo_oficial_url": "https://agenciarca.com.br/imagens/logo-branco.webp",
+  "logo_regiao": {
+    "x": 100,
+    "y": 104,
+    "w": 258,
+    "h": 104
+  },
+  "texto_final": [
+    "Marketing que vende, não só aparece",
+    "A pane da Microsoft passou.",
+    "Agora vem o golpe",
+    "Depois da pane do Microsoft 365, surgiram falsos avisos sobre e-mails retidos. Veja como reconhecer a fraude e proteger sua empresa.",
+    "LEIA O ARTIGO NO BLOG"
+  ],
+  "formato": [
+    1080,
+    1920
+  ]
+}
