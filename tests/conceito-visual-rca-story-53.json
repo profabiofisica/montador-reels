@@ -1,7 +1,7 @@
 {
   "cliente": "Agência RCA",
   "conceito_versao": 8,
-  "arte_url": "https://agenciarca.com.br/portal-admin/api/tarefas.php?anexo=74",
+  "arte_url": "https://export-download.canva.com/efceacc6-227c-4811-b461-9df62895b258/0/0001-4321726230053414299.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH4R7NKVBA%2F20261116%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20261116T193148Z&X-Amz-Expires=6058&X-Amz-Signature=b50b75900be7e21aceffb1f3418dad1a7a98fd25d5746dec6341d85cf4b1e4dc&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Mon%2C%2016%20Nov%202026%2021%3A12%3A46%20GMT",
   "logo_oficial_url": "https://agenciarca.com.br/imagens/logo-branco.webp",
   "logo_regiao": {
     "x": 95,
