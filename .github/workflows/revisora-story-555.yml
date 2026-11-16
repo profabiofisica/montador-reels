@@ -1,0 +1,55 @@
+name: RCA Story 555 - Revisora real
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/revisora-story-555.yml"
+      - "tests/story-555-revisora-original.json"
+      - "tests/story-555-conceito-v8.json"
+permissions:
+  contents: read
+jobs:
+  revisar-story:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: OCR portugues e Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends tesseract-ocr tesseract-ocr-por python3-pil >/dev/null
+      - name: Revisora de artes original (local) - Story 555
+        id: original
+        continue-on-error: true
+        run: |
+          mkdir -p relatorios
+          python3 revisora.py --local tests/story-555-revisora-original.json > relatorios/story-555-original.json
+          cat relatorios/story-555-original.json
+      - name: Revisora por conceito RCA V8 - Story 555
+        id: conceito
+        continue-on-error: true
+        run: python3 scripts/revisora-conceito-visual.py tests/story-555-conceito-v8.json
+      - name: Publicar relatorios para auditoria
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCA-story-555-revisora-original-conceito-v8
+          path: relatorios/
+          if-no-files-found: warn
+      - name: Resultado
+        if: always()
+        env:
+          ORIGINAL: ${{ steps.original.outcome }}
+          CONCEITO: ${{ steps.conceito.outcome }}
+        run: |
+          echo "Revisora original: $ORIGINAL; conceito V8: $CONCEITO"
+          if [ "$ORIGINAL" != "success" ] || [ "$CONCEITO" != "success" ]; then
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          r=json.load(open('relatorios/story-555-original.json'))
+          if not r.get("ok"): raise SystemExit("REPROVADO por revisora original; ver relatório")
+          print("Pré-auditoria técnica passou; revisão visual humana ainda obrigatória.")
+          PY
