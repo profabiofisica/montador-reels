@@ -1,0 +1,43 @@
+# Pré-auditoria editorial RCA.
+# O job SEMPRE bloqueia aprovação/publicação: links válidos não comprovam fatos.
+# A Social deve executar a skill, conferir afirmações nas fontes e obter aprovação da direção.
+name: RCA - Revisora editorial
+on:
+  workflow_dispatch:
+    inputs:
+      artigo_url:
+        description: "URL pública do artigo RCA (não envie rascunhos privados)"
+        required: false
+        default: "https://agenciarca.com.br/blog/pane-microsoft-phishing-golpes-email/"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/auditoria-editorial.mjs"
+      - ".github/workflows/revisora-editorial.yml"
+permissions:
+  contents: read
+jobs:
+  preauditoria:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pré-auditoria de links e estrutura (sem aprovação automática)
+        id: revisar
+        continue-on-error: true
+        env:
+          ARTIGO_URL: ${{ inputs.artigo_url || 'https://agenciarca.com.br/blog/pane-microsoft-phishing-golpes-email/' }}
+        run: node scripts/auditoria-editorial.mjs
+      - name: Anexar relatório para a Social
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revisora-editorial-relatorio
+          path: relatorios/
+          if-no-files-found: error
+      - name: Bloquear aprovação automática
+        if: always()
+        run: |
+          echo "A auditoria técnica não aprova fatos nem autoriza publicação."
+          echo "Social deve executar a SKILL.md com fontes verificadas, e Fábio/Fabi devem aprovar."
+          exit 1
