@@ -24,9 +24,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Pré-auditoria de links e estrutura (sem aprovação automática)
         id: revisar
-        continue-on-error: true
         env:
-          ARTIGO_URL: ${{ inputs.artigo_url || 'https://agenciarca.com.br/blog/pane-microsoft-phishing-golpes-email/' }}
+          ARTIGO_URL: ${{ github.event_name == 'push' && 'https://agenciarca.com.br/blog/quanto-tempo-o-seo-leva-para-dar-resultado/' || inputs.artigo_url || 'https://agenciarca.com.br/blog/pane-microsoft-phishing-golpes-email/' }}
         run: node scripts/auditoria-editorial.mjs
       - name: Anexar relatório para a Social
         if: always()
