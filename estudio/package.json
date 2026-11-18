@@ -1,0 +1,14 @@
+{
+  "name": "estudio-rca",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "remotion": "^4.0.544",
+    "@remotion/cli": "^4.0.544",
+    "@remotion/renderer": "^4.0.544",
+    "@remotion/bundler": "^4.0.544",
+    "@remotion/transitions": "^4.0.544",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

@@ -7,14 +7,14 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: [".github/workflows/reels.yml", "montar.py", "musica.py"]
+    paths: [".github/workflows/reels.yml", "montar.py", "musica.py", "estudio.py", "estudio/**"]
 concurrency:
   group: reels
   cancel-in-progress: false
 jobs:
   montar:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       # 05/11/2026: pergunta a fila antes de instalar nada (rodada vazia termina em segundos)
@@ -42,9 +42,28 @@ jobs:
         if: steps.fila.outputs.n != '0'
         run: python3 -c "import numpy" 2>/dev/null || sudo apt-get install -y -qq --no-install-recommends python3-numpy >/dev/null || python3 -m pip install --user -q numpy
         timeout-minutes: 6
+      # 17/11/2026: Estúdio RCA (Remotion) no lugar do montador em ffmpeg
+      - uses: actions/setup-node@v4
+        if: steps.fila.outputs.n != '0'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: estudio/package-lock.json
+      - name: Cache do modelo de voz
+        if: steps.fila.outputs.n != '0'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: estudio-whisper-v1
+      - name: Estúdio (dependências)
+        if: steps.fila.outputs.n != '0'
+        run: |
+          cd estudio && npm ci --no-audit --no-fund && npx remotion browser ensure
+          python3 -m pip install --user -q --break-system-packages faster-whisper || echo "sem faster-whisper: legenda pelo tempo do admin"
+        timeout-minutes: 12
       - name: Montar
         if: steps.fila.outputs.n != '0'
         env:
           RCA_REELS_TOKEN: ${{ secrets.RCA_REELS_TOKEN }}
           RCA_BASE: ${{ vars.RCA_BASE || 'https://agenciarca.com.br' }}
-        run: python3 montar.py
+        run: python3 estudio.py
