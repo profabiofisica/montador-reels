@@ -70,7 +70,7 @@ export const CenaView: React.FC<{c: TCena; i: number; p: Props; durF: number}> =
 				<OffthreadVideo
 					src={res(c.src)!}
 					startFrom={Math.round((c.inicio || 0) * fps)}
-					muted
+					volume={p.voz ? 0.18 : 0.35}
 					style={{width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${interpolate(prog, [0, 1], [1.0, 1.06]) * soco.s})`, transformOrigin: `${soco.ox} ${soco.oy}`, filter: filtro}}
 				/>
 			) : c.src ? (

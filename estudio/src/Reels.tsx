@@ -102,7 +102,7 @@ export const Reels: React.FC<Props> = (p0) => {
 			}
 			perto = Math.min(perto, Math.abs(t - a), Math.abs(t - b));
 		}
-		const base = interpolate(perto, [0, 0.35], [0.11, 0.3], {extrapolateRight: 'clamp'});
+		const base = p.voz ? interpolate(perto, [0, 0.35], [0.11, 0.3], {extrapolateRight: 'clamp'}) : 0.75;
 		const fadeIn = interpolate(f, [0, 0.8 * fps], [0, 1], {extrapolateRight: 'clamp'});
 		const fadeOut = interpolate(f, [durationInFrames - 1.4 * fps, durationInFrames], [1, 0], {extrapolateLeft: 'clamp'});
 		return base * fadeIn * fadeOut;
