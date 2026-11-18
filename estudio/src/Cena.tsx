@@ -59,7 +59,11 @@ export const CenaView: React.FC<{c: TCena; i: number; p: Props; durF: number}> =
 			</AbsoluteFill>
 		);
 	}
-	const t = `translate(${m.x}px, ${m.y}px) scale(${m.s}) rotate(${m.r}deg)`;
+	/* cena longa ganha um punch-in no meio (outro enquadramento do mesmo plano): mais um corte sem gastar geração */
+	const corteMeio = durF > 2.4 * fps ? Math.round(durF * 0.55) : Infinity;
+	const depois = frame >= corteMeio;
+	const soco = depois ? {s: 1.17, ox: i % 2 ? '38%' : '62%', oy: '40%'} : {s: 1, ox: '50%', oy: '50%'};
+	const t = `translate(${m.x}px, ${m.y}px) scale(${m.s * soco.s}) rotate(${m.r}deg)`;
 	return (
 		<AbsoluteFill style={{backgroundColor: '#100818', overflow: 'hidden'}}>
 			{c.tipo === 'video' && c.src ? (
@@ -67,10 +71,10 @@ export const CenaView: React.FC<{c: TCena; i: number; p: Props; durF: number}> =
 					src={res(c.src)!}
 					startFrom={Math.round((c.inicio || 0) * fps)}
 					muted
-					style={{width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${interpolate(prog, [0, 1], [1.0, 1.06])})`, filter: filtro}}
+					style={{width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${interpolate(prog, [0, 1], [1.0, 1.06]) * soco.s})`, transformOrigin: `${soco.ox} ${soco.oy}`, filter: filtro}}
 				/>
 			) : c.src ? (
-				<Img src={res(c.src)!} style={{width: '100%', height: '100%', objectFit: 'cover', transform: t, filter: filtro}} />
+				<Img src={res(c.src)!} style={{width: '100%', height: '100%', objectFit: 'cover', transform: t, transformOrigin: `${soco.ox} ${soco.oy}`, filter: filtro}} />
 			) : null}
 			{/* vinheta e escurecimento suave onde entra a legenda */}
 			<AbsoluteFill

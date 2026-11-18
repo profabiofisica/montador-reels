@@ -23,7 +23,7 @@ export type Props = {
 	sfx?: string;
 };
 
-export const XF = 0.4; // segundos de transição
+export const XF = 0; // cortes secos: sem sobreposição entre cenas
 
 export const duracaoTotal = (p: Props) => {
 	const xf = p.transicao ?? XF;

@@ -1,9 +1,5 @@
 import React from 'react';
 import {AbsoluteFill, Audio, Img, interpolate, Sequence, spring, useCurrentFrame, useVideoConfig, Easing} from 'remotion';
-import {TransitionSeries, linearTiming} from '@remotion/transitions';
-import {fade} from '@remotion/transitions/fade';
-import {slide} from '@remotion/transitions/slide';
-import {wipe} from '@remotion/transitions/wipe';
 import {carregaFontes, FONTE} from './fontes';
 import {CenaView} from './Cena';
 import {Legenda} from './Legenda';
@@ -11,14 +7,26 @@ import {Props, XF, duracaoTotal, res} from './tipos';
 
 carregaFontes();
 
-const TRANS = [
-	() => slide({direction: 'from-right'}),
-	() => fade(),
-	() => wipe({direction: 'from-bottom-left'}),
-	() => slide({direction: 'from-bottom'}),
-	() => fade(),
-	() => wipe({direction: 'from-right'}),
-];
+/* cortes (pesquisa de retenção, 17/11/2026): corte seco é a base; whip, flash e soco de zoom
+   marcam a virada, sempre curtos (até 0,2 s) e com som no quadro exato do corte */
+const CORTES = ['whip', 'seco', 'soco', 'seco', 'flash', 'whip', 'seco', 'soco'] as const;
+type Corte = (typeof CORTES)[number];
+const efeitoCorte = (f: number, cortes: Array<{f: number; tipo: Corte; dir: number}>) => {
+	let tx = 0, blur = 0, sc = 1, flash = 0;
+	for (const c of cortes) {
+		const d = f - c.f; // quadros desde o corte (negativo = antes)
+		if (d < -4 || d > 8) continue;
+		if (c.tipo === 'whip') {
+			const k = d < 0 ? (4 + d) / 4 : 1 - d / 5;
+			if (k > 0) { tx += c.dir * (d < 0 ? -1 : 1) * 160 * k; blur = Math.max(blur, 18 * k); sc *= 1 + 0.2 * k; }
+		} else if (c.tipo === 'soco' && d >= 0) {
+			sc *= 1 + 0.12 * Math.max(0, 1 - d / 7);
+		} else if (c.tipo === 'flash' && d >= -1) {
+			flash = Math.max(flash, Math.max(0, 1 - Math.abs(d) / 3) * 0.85);
+		}
+	}
+	return {tx, blur, sc, flash};
+};
 
 /* gancho: palavras entram uma a uma, a última em destaque (os 2,4 s que seguram o dedo) */
 export const Gancho: React.FC<{texto: string; destaque: string; fixo?: boolean; y?: number}> = ({texto, destaque, fixo, y}) => {
@@ -75,11 +83,14 @@ export const Reels: React.FC<Props> = (p0) => {
 	const ult = p0.cenas[p0.cenas.length - 1];
 	const p: Props = p0.cta && ult?.tipo === 'texto' ? {...p0, cenas: [...p0.cenas.slice(0, -1), {...ult, texto: p0.cta}]} : p0;
 	const {fps, durationInFrames} = useVideoConfig();
-	const xf = p.transicao ?? XF;
-	const xfF = Math.round(xf * fps);
+	const xfF = 0;
+	const frame = useCurrentFrame();
 	const destaque = p.cores.destaque || '#EF773B';
 	const durs = p.cenas.map((c) => Math.round(c.dur * fps));
-	const inicioUltima = durs.slice(0, -1).reduce((s, d) => s + d - xfF, 0);
+	const inicios = durs.map((_, i) => durs.slice(0, i).reduce((a, b) => a + b, 0));
+	const inicioUltima = inicios[inicios.length - 1];
+	const cortes = inicios.slice(1).map((f, i) => ({f, tipo: CORTES[i % CORTES.length] as Corte, dir: i % 2 ? -1 : 1}));
+	const ef = efeitoCorte(frame, cortes);
 	const falando = React.useMemo(() => p.legendas.map((w) => [w.a, w.b] as [number, number]), [p.legendas]);
 	const volTrilha = (f: number) => {
 		const t = f / fps;
@@ -96,23 +107,16 @@ export const Reels: React.FC<Props> = (p0) => {
 		const fadeOut = interpolate(f, [durationInFrames - 1.4 * fps, durationInFrames], [1, 0], {extrapolateLeft: 'clamp'});
 		return base * fadeIn * fadeOut;
 	};
-	let cursor = 0;
 	return (
 		<AbsoluteFill style={{backgroundColor: '#100818'}}>
-			<TransitionSeries>
-				{p.cenas.map((c, i) => {
-					const el = (
-						<TransitionSeries.Sequence key={'s' + i} durationInFrames={durs[i]}>
-							<CenaView c={c} i={i} p={p} durF={durs[i]} />
-						</TransitionSeries.Sequence>
-					);
-					if (i === p.cenas.length - 1) return el;
-					return [
-						el,
-						<TransitionSeries.Transition key={'t' + i} presentation={TRANS[i % TRANS.length]() as never} timing={linearTiming({durationInFrames: xfF})} />,
-					];
-				})}
-			</TransitionSeries>
+			<AbsoluteFill style={{transform: `translateX(${ef.tx}px) scale(${ef.sc})`, filter: ef.blur ? `blur(${ef.blur}px)` : undefined}}>
+				{p.cenas.map((c, i) => (
+					<Sequence key={'s' + i} from={inicios[i]} durationInFrames={durs[i]}>
+						<CenaView c={c} i={i} p={p} durF={durs[i]} />
+					</Sequence>
+				))}
+			</AbsoluteFill>
+			{ef.flash ? <AbsoluteFill style={{backgroundColor: '#fff', opacity: ef.flash}} /> : null}
 			{p.gancho ? <Gancho texto={p.gancho} destaque={destaque} /> : null}
 			<Legenda palavras={p.legendas} destaque={destaque} y={1190} desde={p.gancho ? 2.6 : 0} />
 			{p.cta && p.cenas[p.cenas.length - 1].tipo !== 'texto' ? (
@@ -138,14 +142,13 @@ export const Reels: React.FC<Props> = (p0) => {
 			) : null}
 			{p.trilha ? <Audio src={res(p.trilha)!} volume={volTrilha} loop /> : null}
 			{p.sfx
-				? durs.slice(0, -1).map((d, i) => {
-						cursor += d - xfF;
-						return (
-							<Sequence key={'x' + i} from={Math.max(0, cursor - Math.round(0.12 * fps))} durationInFrames={Math.round(0.8 * fps)}>
-								<Audio src={res(p.sfx)!} volume={0.28} />
+				? cortes
+						.filter((c) => c.tipo !== 'seco')
+						.map((c, i) => (
+							<Sequence key={'x' + i} from={Math.max(0, c.f - 4)} durationInFrames={Math.round(0.7 * fps)}>
+								<Audio src={res(p.sfx)!} volume={c.tipo === 'whip' ? 0.32 : 0.2} />
 							</Sequence>
-						);
-					})
+						))
 				: null}
 		</AbsoluteFill>
 	);
