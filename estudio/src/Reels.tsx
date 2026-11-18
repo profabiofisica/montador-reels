@@ -79,6 +79,22 @@ const Cta: React.FC<{texto: string; destaque: string}> = ({texto, destaque}) => 
 	);
 };
 
+
+/* texto da cena (ex.: "Tradução: ..."): etiqueta no alto, dentro da faixa segura, sem disputar com a legenda */
+const Tela: React.FC<{texto: string; destaque: string}> = ({texto, destaque}) => {
+	const frame = useCurrentFrame();
+	const {fps} = useVideoConfig();
+	const e = spring({frame, fps, config: {damping: 15, stiffness: 200, mass: 0.6}});
+	const tam = texto.length <= 22 ? 74 : texto.length <= 36 ? 62 : 54;
+	return (
+		<div style={{position: 'absolute', left: 90, right: 150, top: 300, display: 'flex', justifyContent: 'center', opacity: e, transform: `translateY(${(1 - e) * -30}px)`}}>
+			<div style={{fontFamily: FONTE, fontWeight: 800, fontSize: tam, lineHeight: 1.1, color: '#FFFFFF', textAlign: 'center', background: 'rgba(16,8,24,0.72)', padding: '18px 30px', borderRadius: 10, borderLeft: 'none', boxShadow: `0 0 0 3px ${destaque}55`}}>
+				{texto}
+			</div>
+		</div>
+	);
+};
+
 export const Reels: React.FC<Props> = (p0) => {
 	const ult = p0.cenas[p0.cenas.length - 1];
 	const p: Props = p0.cta && ult?.tipo === 'texto' ? {...p0, cenas: [...p0.cenas.slice(0, -1), {...ult, texto: p0.cta}]} : p0;
@@ -117,8 +133,17 @@ export const Reels: React.FC<Props> = (p0) => {
 				))}
 			</AbsoluteFill>
 			{ef.flash ? <AbsoluteFill style={{backgroundColor: '#fff', opacity: ef.flash}} /> : null}
+			{p.cenas.map((c, i) =>
+				i > 0 && c.tipo !== 'texto' && c.texto ? (
+					<Sequence key={'t' + i} from={inicios[i] + 4} durationInFrames={Math.max(1, durs[i] - 6)}>
+						<Tela texto={c.texto} destaque={destaque} />
+					</Sequence>
+				) : null,
+			)}
 			{p.gancho ? <Gancho texto={p.gancho} destaque={destaque} /> : null}
-			<Legenda palavras={p.legendas} destaque={destaque} y={1190} desde={p.gancho ? 2.6 : 0} />
+			<Sequence durationInFrames={p.cenas[p.cenas.length - 1].tipo === 'texto' ? inicioUltima : durationInFrames}>
+				<Legenda palavras={p.legendas} destaque={destaque} y={1190} desde={p.gancho ? 2.6 : 0} />
+			</Sequence>
 			{p.cta && p.cenas[p.cenas.length - 1].tipo !== 'texto' ? (
 				<Sequence from={inicioUltima + Math.round(0.3 * fps)}>
 					<Cta texto={p.cta} destaque={destaque} />

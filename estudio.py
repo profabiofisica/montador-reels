@@ -154,7 +154,7 @@ def montar_estudio(t, pasta):
         leg = [dict(w, a=w["a"] + 0.25, b=w["b"] + 0.25) for w in leg]
     props["legendas"] = leg or roteiro
     fala = " ".join(w["p"] for w in props["legendas"])
-    props["gancho"] = t.get("gancho") or t.get("capa_texto") or frase(fala, fim=False)
+    props["gancho"] = t.get("gancho") or t.get("capa_texto") or t.get("capa") or frase(fala, fim=False)
     props["cta"] = t.get("cta") or frase(fala, fim=True)
     # a voz manda no tempo: a última cena estica ou encolhe
     xf = props["transicao"]

@@ -59,7 +59,7 @@ jobs:
         if: steps.fila.outputs.n != '0'
         run: |
           cd estudio && npm ci --no-audit --no-fund && npx remotion browser ensure
-          python3 -m pip install --user -q --break-system-packages faster-whisper || echo "sem faster-whisper: legenda pelo tempo do admin"
+          python3 -m pip install --user -q --break-system-packages --upgrade faster-whisper "av>=14" || echo "sem faster-whisper: legenda pelo tempo do admin"
         timeout-minutes: 12
       - name: Montar
         if: steps.fila.outputs.n != '0'
