@@ -31,7 +31,7 @@ import urllib.request
 
 from PIL import Image, ImageOps
 
-VERSAO = "1.2"
+VERSAO = "1.3"
 BASE = os.environ.get("RCA_BASE", "https://agenciarca.com.br").rstrip("/")
 TOKEN = os.environ.get("RCA_REELS_TOKEN", "")
 API = "/portal-admin/api/arte-revisora.php"
@@ -136,7 +136,9 @@ def ocr(caminho):
     im = Image.open(caminho).convert("L")
     pal = []
     with tempfile.TemporaryDirectory() as tmp:
-        for k, img in enumerate([im, ImageOps.invert(im)]):
+        # 1.3 (21/11/2026): fonte de molde e letra fina saem melhores lidas em 2x
+        grande = im.resize((im.width * 2, im.height * 2), Image.LANCZOS)
+        for k, (img, fator) in enumerate([(im, 1), (ImageOps.invert(im), 1), (grande, 2), (ImageOps.invert(grande), 2)]):
             arq = os.path.join(tmp, f"o{k}.png")
             img.save(arq)
             r = subprocess.run(["tesseract", arq, "stdout", "-l", "por", "--psm", "11", "tsv"],
@@ -151,7 +153,7 @@ def ocr(caminho):
                     continue
                 if conf < 0:
                     continue
-                x, y, w, h = (int(c[6]), int(c[7]), int(c[8]), int(c[9]))
+                x, y, w, h = (int(int(c[6]) / fator), int(int(c[7]) / fator), int(int(c[8]) / fator), int(int(c[9]) / fator))
                 pal.append({"txt": c[11].strip(), "n": norm(c[11]), "conf": conf, "x": x, "y": y, "w": w, "h": h})
     # tira duplicadas (mesma caixa nas duas leituras): fica a de maior confiança
     pal.sort(key=lambda p: -p["conf"])
@@ -196,7 +198,7 @@ def contraste(im_rgb, p):
 
 
 # ---------- revisão de uma peça ----------
-def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_ctx=None, es_bloco=True):
+def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_ctx=None, es_bloco=True, num_raw=None):
     furos = []
     vocab_post = vocab if vocab_post is None else vocab_post
     num_ctx = num_ctx or set()
@@ -222,11 +224,15 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
     # 2b. número na arte que não está no texto deste post (05/11/2026, alucinação): nota, avaliações, preço, ano e
     # porcentagem só valem se o briefing do post traz o número. Do contexto do cliente só passam telefone e CEP (8+ dígitos).
     so_dig = lambda x: re.sub(r"\D", "", x)
-    nums_post = {so_dig(v) for v in vocab_post | livres if so_dig(v)}
+    nums_post = {so_dig(v) for v in vocab_post | livres if so_dig(v)} | set(num_raw or ())
     inventados = []
     for p in lidas:
         d = so_dig(p["n"])
         if len(d) < 2 or d in nums_post or any(d in q for q in nums_post if len(q) >= 8):
+            continue
+        # 1.3: data e modelo (25/12, 18-45MM): cada grupo de dígitos está no card
+        grupos = re.findall(r"\d+", p["txt"])
+        if grupos and all(g in nums_post for g in grupos):
             continue
         # 1.2: ano, hora de tela (9:41) e número de 2 dígitos sem % ou R$ não são dado inventado
         if re.fullmatch(r"(19|20)\d\d", d) or re.search(r"\d{1,2}:\d{2}", p["txt"]) or (len(d) == 2 and not re.search(r"%|r\$", p["txt"].lower())):
@@ -255,6 +261,8 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
         n = p["n"]
         if n in vocab or len(n) < 6:
             continue
+        if re.search(r"[./@]|www", p["txt"].lower()):     # 1.3: site, e-mail e @ não são palavras grudadas
+            continue
         for i in range(2, len(n) - 1):
             a, b = n[:i], n[i:]
             if a in vocab and b in vocab and len(a) >= 3 and len(b) >= 3 and not re.search(r"[áéíóúâêôãõç\-]", p["txt"].lower()):
@@ -275,7 +283,9 @@ def revisar_peca(caminho, canal, esperado, vocab, livres, vocab_post=None, num_c
         if not es_bloco:
             minimo = 0.4 if len(exp) >= 4 else 0.0
         if cobertura < minimo:
-            furos.append(f"texto do briefing faltando ou ilegível ({int(cobertura * 100)}% lido; faltou: {', '.join(faltam[:8])})")
+            msg = f"texto do briefing faltando ou ilegível ({int(cobertura * 100)}% lido; faltou: {', '.join(faltam[:8])})"
+            # 1.3 (21/11/2026): abaixo de 50% quase sempre é o OCR que não lê a fonte do molde; vira aviso e o Crivo confere no olho
+            (avisos if cobertura < 0.5 else furos).append(msg)
     # 3. leitura: letra pequena e contraste
     corpo = [p for p in lidas if p["n"] in vocab and p["n"] not in livres and len(p["n"]) >= 3]
     alt_min = ALTURA_MIN.get(canal, 20) * escala
@@ -301,6 +311,10 @@ def revisar(t, tmp):
     briefing = t.get("briefing") or ""
     vocab = set(palavras(briefing + " " + (t.get("titulo") or "") + " " + " ".join(t.get("textos_extra") or [])))
     vocab_post = set(vocab)
+    bruto = " ".join([briefing, t.get("titulo") or "", t.get("legenda") or ""] + list(t.get("textos_extra") or []))
+    vocab_post |= set(palavras(t.get("legenda") or ""))
+    # 1.3: números do card com separador junto (18-45, 25/12) e cada grupo de dígitos
+    num_raw = {re.sub(r"\D", "", x) for x in re.findall(r"\d[\d/.\-:,]*\d|\d", bruto)} | set(re.findall(r"\d+", bruto))
     num_ctx = {d for d in (re.sub(r"\D", "", x) for x in re.findall(r"[\d().\- ]{8,}", t.get("vocab_contexto") or "")) if len(d) >= 8}
     # texto fixo do molde e da marca (assinatura, "link na bio", "loja física e online") vem do contexto aprovado do cliente
     vocab |= set(palavras(t.get("vocab_contexto") or ""))
@@ -327,7 +341,7 @@ def revisar(t, tmp):
         es_bloco = bool(p.get("esperado")) or (canal in ("lamina", "feed") and bool(lam_b) and len(lam_b) >= n_feed)
         if canal in ("lamina", "feed"):
             i_feed += 1
-        fs, d = revisar_peca(arq, canal, esp, vocab, livres, vocab_post, num_ctx, es_bloco)
+        fs, d = revisar_peca(arq, canal, esp, vocab, livres, vocab_post, num_ctx, es_bloco, num_raw)
         nome = f"peça {k + 1} ({'lâmina ' + str(i_feed) if canal == 'lamina' else canal})"
         furos += [f"{nome}: {f}" for f in fs]
         det.append({"peca": k + 1, "canal": canal, **d, "furos": len(fs)})
